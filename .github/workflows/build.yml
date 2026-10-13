@@ -1,13 +1,9 @@
 name: Build
 
+# The personal fork runs only macos-arm64-personal.yml on request.
+# Keep the inherited multi-platform build available for explicit use only.
 on:
-  # Build on new commits, tags, or pull requests.
-  create:
-  push:
-  pull_request:
-  schedule:
-    # Run every week just to make sure the CI environment still works. 
-    - cron: '0 0 * * 0'
+  workflow_dispatch:
 
 jobs:
   build-ubuntu:
@@ -107,7 +103,7 @@ jobs:
         version: 6.8.0
 
     - name: Generate Project
-      run: cmake -S ${GITHUB_WORKSPACE} -B ${{runner.workspace}}/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      run: cmake -S ${GITHUB_WORKSPACE} -B ${{runner.workspace}}/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
     - name: Build
       run: cmake --build ${{runner.workspace}}/build
     - name: Test

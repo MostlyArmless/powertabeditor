@@ -128,6 +128,15 @@ You'll have to update the variables for your specific paths to `$vcpkg_exe_path`
   * `make install` or `ninja install`
 
 #### OS X:
+* For an Apple Silicon Mac (including M4), use native ARM64 dependencies and add `-DCMAKE_OSX_ARCHITECTURES=arm64` when configuring CMake. For example:
+  ```sh
+  cmake -S . -B build-arm64 -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_PREFIX_PATH="$(brew --prefix qt6)"
+  cmake --build build-arm64 --parallel
+  ctest --test-dir build-arm64 --output-on-failure
+  open "build-arm64/bin/Power Tab Editor.app"
+  ```
+* This personal fork leaves the inherited multi-platform workflow manual-only so pushes do not start other targets.
+* Forks can run **Apple Silicon personal build** from the GitHub Actions tab to build, test, and download an ARM64 DMG without the upstream signing certificates. This workflow must be pushed to the fork before it can be run. The personal DMG is ad-hoc signed and is not notarized by Apple; macOS may require approval under System Settings → Privacy & Security when first opening it. The workflow checks the application architecture and ARM64 support in its bundled dependencies.
 * Install Xcode along with its Command Line Tools.
 * Install dependencies:
   * `brew install boost cmake doctest minizip ninja nlohmann-json pugixml qt6 pugixml rtmidi`

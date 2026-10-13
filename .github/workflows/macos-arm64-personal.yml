@@ -1,0 +1,59 @@
+name: Apple Silicon personal build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check native Apple Silicon runner
+        run: test "$(uname -m)" = arm64
+      - name: Install dependencies
+        run: brew install boost cmake doctest minizip ninja nlohmann-json pugixml rtmidi
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          arch: clang_64
+          version: 6.8.0
+      - name: Configure for Apple Silicon
+        run: >-
+          cmake -S . -B build-arm64 -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_ARCHITECTURES=arm64
+          -DPTE_ENABLE_PCH=ON
+      - name: Build and test
+        run: |
+          cmake --build build-arm64 --parallel 3
+          ctest --test-dir build-arm64 --output-on-failure
+      - name: Package personal DMG
+        # Personal builds use an ad-hoc signature, without upstream secrets.
+        run: |
+          bundle="build-arm64/bin/Power Tab Editor.app"
+          executable="$bundle/Contents/MacOS/Power Tab Editor"
+          test "$(lipo -archs "$executable")" = arm64
+          macdeployqt "$bundle" -always-overwrite -verbose=2
+          if ! otool -l "$executable" | grep -q '@executable_path/../Frameworks'; then
+            install_name_tool -add_rpath '@executable_path/../Frameworks' "$executable"
+          fi
+          # Verify every bundled Mach-O dependency can run natively on the M4.
+          while IFS= read -r -d '' binary; do
+            if file "$binary" | grep -q 'Mach-O'; then
+              lipo -verify_arch arm64 "$binary"
+            fi
+          done < <(find "$bundle" -type f -print0)
+          codesign --force --deep --sign - "$bundle"
+          codesign --verify --deep --strict "$bundle"
+          mkdir -p build-arm64/dmg
+          ditto "$bundle" "build-arm64/dmg/Power Tab Editor.app"
+          ln -s /Applications build-arm64/dmg/Applications
+          hdiutil create -volname 'Power Tab Editor' -srcfolder build-arm64/dmg -ov -format UDZO build-arm64/powertabeditor-macos-arm64.dmg
+      - uses: actions/upload-artifact@v7
+        with:
+          name: powertabeditor-macos-arm64
+          path: build-arm64/powertabeditor-macos-arm64.dmg
+          if-no-files-found: error
