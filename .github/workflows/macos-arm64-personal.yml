@@ -43,11 +43,18 @@ jobs:
           # Verify every bundled Mach-O dependency can run natively on the M4.
           while IFS= read -r -d '' binary; do
             if file "$binary" | grep -q 'Mach-O'; then
-              lipo -verify_arch arm64 "$binary"
+              lipo "$binary" -verify_arch arm64
+              dependencies="$(otool -L "$binary")"
+              printf '%s\n' "$dependencies"
+              if printf '%s\n' "$dependencies" | grep -E '/opt/homebrew/|/Users/runner/'; then
+                echo 'A bundled binary still depends on the build machine.' >&2
+                exit 1
+              fi
             fi
           done < <(find "$bundle" -type f -print0)
           codesign --force --deep --sign - "$bundle"
           codesign --verify --deep --strict "$bundle"
+          "$executable" --version
           mkdir -p build-arm64/dmg
           ditto "$bundle" "build-arm64/dmg/Power Tab Editor.app"
           ln -s /Applications build-arm64/dmg/Applications
